@@ -23,17 +23,17 @@ const upload = async (req, res) => {
         }
 
         const folderName = 'cdm_bucket'
-        const subfolder = req.subfolder
+        const subfolder = req.body.subfolder
         const timestamp = Date.now();
         const fileNameWithTimestamp = `${timestamp}_${req.file.originalname}`;
         let filePathInBucket
 
         if (req.query.subfolder == "projetos") {
-            const subsub = req.subsub
+            const subsub = req.body.subsub
             filePathInBucket = `${folderName}/${subfolder}/${subsub}/${fileNameWithTimestamp}`;
         }
         else if (req.query.subfolder == "processos") {
-            const subsub = req.subsub
+            const subsub = req.body.subsub
             filePathInBucket = `${folderName}/${subfolder}/${subsub}/${fileNameWithTimestamp}`;
         }
         else {
