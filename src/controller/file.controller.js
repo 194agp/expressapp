@@ -28,11 +28,11 @@ const upload = async (req, res) => {
         const fileNameWithTimestamp = `${timestamp}_${req.file.originalname}`;
         let filePathInBucket
 
-        if (req.query.subfolder == "projetos") {
+        if (req.body.subfolder == "projetos") {
             const subsub = req.body.subsub
             filePathInBucket = `${folderName}/${subfolder}/${subsub}/${fileNameWithTimestamp}`;
         }
-        else if (req.query.subfolder == "processos") {
+        else if (req.body.subfolder == "processos") {
             const subsub = req.body.subsub
             filePathInBucket = `${folderName}/${subfolder}/${subsub}/${fileNameWithTimestamp}`;
         }
