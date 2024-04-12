@@ -79,6 +79,8 @@ const upload = async (req, res) => {
                 url: downloadLink,
                 originalName: req.file.originalname,
                 filenameTimestamp: fileNameWithTimestamp,
+                size: size,
+                format: mimetype ,
             });
         });
 
