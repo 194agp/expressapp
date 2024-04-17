@@ -101,6 +101,7 @@ const upload = async (req, res) => {
 };
 
 const deleteFile = async (req, res) => {
+    console.log('olaaaaa hey hello')
     console.log(req.body)
     try {
         const fileName = req.body.fileName;
