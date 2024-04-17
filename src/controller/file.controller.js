@@ -104,6 +104,8 @@ const deleteFile = async (req, res) => {
     console.log('olaaaaa hey hello')
     console.log(req.query)
     console.log(req.query.filePath)
+    console.log('req.query.filePath testrsarqrwqe')
+
     try {
         const fileName = req.query.fileName;
         const filePath = req.query.filePath ? `${req.query.filePath}/${fileName}` : `${gcsMainFolder}/${fileName}`;
