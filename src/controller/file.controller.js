@@ -13,6 +13,7 @@ const storage = new Storage({
     },
 });
 const bucket = storage.bucket(process.env.BUCKET_CODEMAR);
+const gcsMainFolder = process.env.GCS_MAIN_FOLDER
 
 const upload = async (req, res) => {
     try {
@@ -22,7 +23,6 @@ const upload = async (req, res) => {
             return res.status(400).send({ message: "Please upload a file!" });
         }
 
-        const folderName = 'cdm_bucket'
         const subfolder = req.body.subfolder
         const timestamp = Date.now();
         const fileNameWithTimestamp = `${timestamp}_${req.file.originalname}`;
@@ -30,14 +30,14 @@ const upload = async (req, res) => {
 
         if (req.body.subfolder == "projetos") {
             const subsub = req.body.subsub
-            filePathInBucket = `${folderName}/${subfolder}/${subsub}/${fileNameWithTimestamp}`;
+            filePathInBucket = `${gcsMainFolder}/${subfolder}/${subsub}/${fileNameWithTimestamp}`;
         }
         else if (req.body.subfolder == "processos") {
             const subsub = req.body.subsub
-            filePathInBucket = `${folderName}/${subfolder}/${subsub}/${fileNameWithTimestamp}`;
+            filePathInBucket = `${gcsMainFolder}/${subfolder}/${subsub}/${fileNameWithTimestamp}`;
         }
         else {
-            filePathInBucket = `${folderName}/${fileNameWithTimestamp}`;
+            filePathInBucket = `${gcsMainFolder}/${fileNameWithTimestamp}`;
         }
 
         const blob = bucket.file(filePathInBucket);
@@ -51,7 +51,7 @@ const upload = async (req, res) => {
 
         blobStream.on("finish", async (data) => {
             const publicUrl = format(
-                `https://storage.googleapis.com/${bucket.name}/${folderName}/${blob.name}`
+                `https://storage.googleapis.com/${bucket.name}/${gcsMainFolder}/${blob.name}`
             );
 
             const downloadUrl = await blob.getSignedUrl({
@@ -80,7 +80,7 @@ const upload = async (req, res) => {
                 originalName: req.file.originalname,
                 filenameTimestamp: fileNameWithTimestamp,
                 size: req.file.size,
-                format: req.file.mimetype ,
+                format: req.file.mimetype,
             });
         });
 
@@ -99,6 +99,21 @@ const upload = async (req, res) => {
         });
     }
 };
+
+const deleteFile = async (req, res) => {
+    try {
+        const fileName = req.body.fileName;
+        const filePath = req.body.filePath ? `${gcsMainFolder}/${req.body.filePath}/${fileName}` : `${gcsMainFolder}/${fileName}`;
+
+        const deletedFile = await bucket.file(filePath).delete();
+        console.log(deletedFile)
+
+        res.status(200).send({ message: `File ${fileName} deleted successfully.` });
+    } catch (err) {
+        console.error(err);
+        res.status(500).send({ message: "Failed to delete the file." });
+    }
+}
 
 const getListFiles = async (req, res) => {
     try {
@@ -138,4 +153,5 @@ module.exports = {
     upload,
     getListFiles,
     download,
+    deleteFile,
 };
