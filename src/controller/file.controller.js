@@ -103,6 +103,7 @@ const upload = async (req, res) => {
 const deleteFile = async (req, res) => {
     console.log('olaaaaa hey hello')
     console.log(req.query)
+    console.log(req.query.filePath)
     try {
         const fileName = req.query.fileName;
         const filePath = req.query.filePath ? `${gcsMainFolder}/${req.query.filePath}/${fileName}` : `${gcsMainFolder}/${fileName}`;
