@@ -102,10 +102,10 @@ const upload = async (req, res) => {
 
 const deleteFile = async (req, res) => {
     console.log('olaaaaa hey hello')
-    console.log(req.body)
+    console.log(req.query)
     try {
-        const fileName = req.body.fileName;
-        const filePath = req.body.filePath ? `${gcsMainFolder}/${req.body.filePath}/${fileName}` : `${gcsMainFolder}/${fileName}`;
+        const fileName = req.query.fileName;
+        const filePath = req.query.filePath ? `${gcsMainFolder}/${req.query.filePath}/${fileName}` : `${gcsMainFolder}/${fileName}`;
 
         const deletedFile = await bucket.file(filePath).delete();
         console.log(deletedFile)
