@@ -15,5 +15,5 @@ initRoutes(app);
 
 const port = 8080;
 app.listen(port, () => {
-  console.log(`Running at localhost:${port}`);
+  console.warn(`Running at localhost:${port}`);
 });

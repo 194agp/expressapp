@@ -12,8 +12,22 @@ const storage = new Storage({
         private_key: process.env.GCS_PRIVATE_KEY.replace(/\\n/g, '\n'),
     },
 });
+
 const bucket = storage.bucket(process.env.BUCKET_CODEMAR);
 const gcsMainFolder = process.env.GCS_MAIN_FOLDER
+
+// Função para fazer upload de um arquivo para o Cloud Storage
+async function uploadFile(fileName, filePath) {
+    try {
+        await storage.bucket(bucketName).upload(filePath, {
+            destination: fileName,
+            // Você pode adicionar opções adicionais aqui, como metadados do arquivo
+        });
+        console.log(`Arquivo ${fileName} enviado para o Cloud Storage.`);
+    } catch (err) {
+        console.error('Erro ao enviar arquivo para o Cloud Storage:', err);
+    }
+}
 
 const upload = async (req, res) => {
     try {
@@ -23,27 +37,13 @@ const upload = async (req, res) => {
             return res.status(400).send({ message: "Please upload a file!" });
         }
 
-        const subfolder = req.body.subfolder
+        const folders = req.body.folders
         const timestamp = Date.now();
         const fileNameWithTimestamp = `${timestamp}_${req.file.originalname}`;
-        let filePathInBucket
-
-        if (req.body.subfolder == "projetos") {
-            const subsub = req.body.subsub
-            filePathInBucket = `${gcsMainFolder}/${subfolder}/${subsub}/${fileNameWithTimestamp}`;
-        }
-        else if (req.body.subfolder == "processos") {
-            const subsub = req.body.subsub
-            filePathInBucket = `${gcsMainFolder}/${subfolder}/${subsub}/${fileNameWithTimestamp}`;
-        }
-        else {
-            filePathInBucket = `${gcsMainFolder}/${fileNameWithTimestamp}`;
-        }
+        const filePathInBucket = `${gcsMainFolder}/${folders}/${fileNameWithTimestamp}`;
 
         const blob = bucket.file(filePathInBucket);
-        const blobStream = blob.createWriteStream({
-            resumable: false,
-        });
+        const blobStream = blob.createWriteStream({ resumable: false, });
 
         blobStream.on("error", (err) => {
             res.status(500).send({ message: err.message });
@@ -75,6 +75,7 @@ const upload = async (req, res) => {
             res.setHeader('Content-Disposition', `attachment; filename="${req.file.originalname}"`);
 
             res.status(200).send({
+                status: 'OK',
                 message: "Uploaded the file successfully: " + req.file.originalname,
                 url: downloadLink,
                 originalName: req.file.originalname,
@@ -86,11 +87,11 @@ const upload = async (req, res) => {
 
         blobStream.end(req.file.buffer);
     } catch (err) {
-        console.log(err);
+        console.error(err);
 
         if (err.code == "LIMIT_FILE_SIZE") {
             return res.status(500).send({
-                message: "File size cannot be larger than 2MB!",
+                message: "File size cannot be larger than 10MB!",
             });
         }
 
@@ -101,17 +102,13 @@ const upload = async (req, res) => {
 };
 
 const deleteFile = async (req, res) => {
-    console.log('olaaaaa hey hello')
-    console.log(req.query)
-    console.log(req.query.filePath)
     try {
         const fileName = req.query.fileName;
         const filePath = req.query.filePath ? `${gcsMainFolder}/${req.query.filePath}/${fileName}` : `${gcsMainFolder}/${fileName}`;
 
         const deletedFile = await bucket.file(filePath).delete();
-        console.log(deletedFile)
 
-        res.status(200).send({ message: `File ${fileName} deleted successfully.` });
+        res.status(200).send({ message: `File ${fileName} deleted successfully.`, deletedFile });
     } catch (err) {
         console.error(err);
         res.status(500).send({ message: "Failed to delete the file." });
@@ -132,13 +129,35 @@ const getListFiles = async (req, res) => {
 
         res.status(200).send(fileInfos);
     } catch (err) {
-        console.log(err);
+        console.error(err);
 
         res.status(500).send({
             message: "Unable to read list of files!",
         });
     }
 };
+
+const criarBucket = async () => {
+    const bucketName = 'larfelizidade'
+    try {
+        await storage.createBucket(bucketName);
+        console.log(`Bucket ${bucketName} criado com sucesso.`);
+    } catch (err) {
+        console.error('Erro ao criar bucket:', err);
+    }
+}
+
+const listBuckets = async () => {
+    try {
+        const [buckets] = await storage.getBuckets();
+        console.log(buckets)
+        buckets.forEach(bucket => {
+            console.log(`Nome do bucket: ${bucket.name}`);
+        });
+    } catch (err) {
+        console.error('Erro ao listar buckets:', err);
+    }
+}
 
 const download = async (req, res) => {
     try {
@@ -155,6 +174,8 @@ const download = async (req, res) => {
 module.exports = {
     upload,
     getListFiles,
+    listBuckets,
+    criarBucket,
     download,
     deleteFile,
 };

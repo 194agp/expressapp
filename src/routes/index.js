@@ -1,14 +1,16 @@
 const express = require("express");
 const router = express.Router();
-const controller = require("../controller/file.controller");
+const FileController = require("../controller/file.controller");
 
 let routes = (app) => {
-  router.get("/files", controller.getListFiles);
-  router.get("/files/:name", controller.download);
+  router.get("/files", FileController.getListFiles);
+  router.get("/listBuckets", FileController.listBuckets);
+  router.get("/files/:name", FileController.download);
 
-  router.post("/upload", controller.upload);
+  router.post("/upload", FileController.upload);
+  router.post("/criarBucket", FileController.criarBucket);
 
-  router.delete("/delete", controller.deleteFile);
+  router.delete("/delete", FileController.deleteFile);
 
   app.use(router);
 };
