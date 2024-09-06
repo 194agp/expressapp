@@ -1,5 +1,6 @@
 const cors = require("cors");
 const express = require("express");
+const cronJobs = require('./src/cronJobs'); // Importa o módulo de cron jobs
 const app = express();
 
 let corsOptions = {
