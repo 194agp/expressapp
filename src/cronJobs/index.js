@@ -37,7 +37,7 @@ cron.schedule('0 10 * * 4', () => {
 });
 
 // TODA QUINTA FEIRA ÀS 08H DA MANHÃ
-cron.schedule('0 13 * * 4', () => {
+cron.schedule('5 13 * * 4', () => {
     async function cronJobs() {
         const result = await sendSurvey(process.env.POKERGROUP, 'Hoje tem poker??', ['Sim', 'Não'])
     };
