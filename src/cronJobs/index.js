@@ -13,6 +13,8 @@ const { sendMessage, sendSurvey } = require('../api/Whatsapp.js');
 //  # │ │ │ │ │ │
 //  # * * * * * *
 
+// DigitalOcean precisar configurar 3h a mais por causa do servidor
+
 
 // cron.schedule('*/1 * * * *', () => {
 //     console.log('rodei')
@@ -27,17 +29,8 @@ const { sendMessage, sendSurvey } = require('../api/Whatsapp.js');
 //     cronJobs();
 // });
 
-// TODA QUINTA FEIRA ÀS 08H DA MANHÃ
-cron.schedule('0 10 * * 4', () => {
-    async function cronJobs() {
-        const result = await sendSurvey(process.env.POKERGROUP, 'Hoje tem poker?', ['Sim', 'Não'])
-    };
-
-    cronJobs();
-});
-
-// TODA QUINTA FEIRA ÀS 08H DA MANHÃ
-cron.schedule('5 13 * * 4', () => {
+// TODA QUINTA FEIRA ÀS 10H DA MANHÃ (UTC-3)
+cron.schedule('0 11 * * 4', () => {
     async function cronJobs() {
         const result = await sendSurvey(process.env.POKERGROUP, 'Hoje tem poker??', ['Sim', 'Não'])
     };
