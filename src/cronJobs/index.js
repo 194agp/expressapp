@@ -28,40 +28,21 @@ const { sendMessage, sendSurvey } = require('../api/Whatsapp.js');
 // });
 
 // TODA QUINTA FEIRA ÀS 08H DA MANHÃ
-cron.schedule('40 9 * * 4', () => {
+cron.schedule('0 10 * * 4', () => {
     async function cronJobs() {
-        const result = await sendSurvey(process.env.POKERGROUP, 'Hoje 9 tem poker?', ['Sim', 'Não'])
+        const result = await sendSurvey(process.env.POKERGROUP, 'Hoje tem poker?', ['Sim', 'Não'])
     };
 
     cronJobs();
 });
 
 // TODA QUINTA FEIRA ÀS 08H DA MANHÃ
-cron.schedule('40 6 * * 4', () => {
+cron.schedule('0 13 * * 4', () => {
     async function cronJobs() {
-        const result = await sendSurvey(process.env.POKERGROUP, 'Hoje 6 tem poker?', ['Sim', 'Não'])
+        const result = await sendSurvey(process.env.POKERGROUP, 'Hoje tem poker??', ['Sim', 'Não'])
     };
 
     cronJobs();
-});
-
-// TODA QUINTA FEIRA ÀS 08H DA MANHÃ
-cron.schedule('40 12 * * 4', () => {
-    async function cronJobs() {
-        const result = await sendSurvey(process.env.POKERGROUP, 'Hoje 12 tem poker?', ['Sim', 'Não'])
-    };
-
-    cronJobs();
-});
-
-// TODA QUINTA FEIRA ÀS 08H DA MANHÃ
-cron.schedule('*/1 * * * 4', () => {
-    console.log('teste', process.env.POKERGROUP)
-    // async function cronJobs() {
-    //     const result = await sendSurvey(process.env.POKERGROUP, 'Hoje 12 tem poker?', ['Sim', 'Não'])
-    // };
-
-    // cronJobs();
 });
 
 module.exports = {}; 
