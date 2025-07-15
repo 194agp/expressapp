@@ -48,22 +48,19 @@ function initCronJobs(app) {
 
     // 3) Execução de teste às 08:05 (horário de SP)
     cron.schedule(
-        '05 08 * * *',
+        '20 08 * * *',
         async () => {
             try {
                 const resultados = await findElimAusenteService(db);
-                console.log('📋 [08:05] Residentes (teste):', resultados);
 
-                // dentro do seu cron de 08:00, logo depois do console.log(...)
-                const groupId = process.env.WPP_GROUP_TECNICOS; // defina no seu .env o ID do grupo ou contato
+                const wppGroupId = process.env.WPP_GROUP_TECNICOS;
 
                 if (resultados.length > 0) {
-                    // Monta o texto da mensagem
-                    const lines = resultados.map(r => {
-                        const datas = r.ultimasAnotacoes
-                            .map(d => `  • ${d}`)      // cada data com marcador
+                    const linha = resultados.map(resultado => {
+                        const datas = resultado.ultimasAnotacoes
+                            .map(data => `  • ${data}`)
                             .join('\n');
-                        return `👵 ${r.nome}:\n${datas}`;
+                        return `👴👵 ${resultado.nome}:\n${datas}`;
                     }).join('\n\n');
 
                     const mensagem = [
@@ -72,21 +69,21 @@ function initCronJobs(app) {
                         'O robô identificou que estes idosos têm 4 registros seguidos',
                         'com *eliminação intestinal ausente*:',
                         '',
-                        lines,
+                        linha,
                         '',
                         'Por favor, verifique o atendimento de cada um.',
                         '👍'
                     ].join('\n');
 
                     // Envia via WhatsApp
-                    await sendMessage(groupId, mensagem);
+                    await sendMessage(wppGroupId, mensagem);
                     console.log('✅ Alerta enviado ao WhatsApp');
                 } else {
                     console.log('🔍 Nenhum residente com 4 registros ausentes hoje.');
                 }
 
             } catch (err) {
-                console.error('❌ Erro no cronjob residentes (08:05):', err);
+                console.error('❌ Erro no cronjob residentes (22:58):', err);
             }
         },
         { timezone: 'America/Sao_Paulo' }
