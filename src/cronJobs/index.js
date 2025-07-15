@@ -48,7 +48,7 @@ function initCronJobs(app) {
 
     // 3) Execução de teste às 08:05 (horário de SP)
     cron.schedule(
-        '20 08 * * *',
+        '35 08 * * *',
         async () => {
             try {
                 const resultados = await findElimAusenteService(db);
