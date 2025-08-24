@@ -5,7 +5,7 @@ const router = express.Router();
 const FileController = require("../controller/file.controller");
 const DocxConverter = require("../controller/docxToPDF.controller");
 const multer = require("multer");
-const { uploadFileMiddleware, uploadFileHandler, deleteFileHandler } = require("../controller/s3.controller");
+// const { uploadFileMiddleware, uploadFileHandler, deleteFileHandler } = require("../controller/s3.controller");
 const upload = multer({ storage: multer.memoryStorage() });
 const PortaoController = require("../controller/portao.controller");
 
@@ -20,8 +20,8 @@ router.post("/criarBucket", FileController.criarBucket);
 router.delete("/delete", FileController.deleteFile);
 
 // CLOUDFARE R2
-router.post("/r2_upload", uploadFileMiddleware, uploadFileHandler);
-router.delete("/r2_delete", deleteFileHandler);
+// router.post("/r2_upload", uploadFileMiddleware, uploadFileHandler);
+// router.delete("/r2_delete", deleteFileHandler);
 
 // Conversão DOCX → PDF
 router.post("/convert-docx-to-pdf", upload.single("file"), DocxConverter.convertDocxToPdf);
