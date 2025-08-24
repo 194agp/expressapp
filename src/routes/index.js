@@ -4,9 +4,10 @@ const router = express.Router();
 
 const FileController = require("../controller/file.controller");
 const DocxConverter = require("../controller/docxToPDF.controller");
-const scrapeInstagramProfile = require("../scrape/scrape");      // ⚠️ importe aqui
 const multer = require("multer");
+const { uploadFileMiddleware, uploadFileHandler, deleteFileHandler } = require("../controller/s3.controller");
 const upload = multer({ storage: multer.memoryStorage() });
+const PortaoController = require("../controller/portao.controller");
 
 // Listagem de arquivos e buckets
 router.get("/files", FileController.getListFiles);
@@ -18,21 +19,15 @@ router.post("/upload", FileController.upload);
 router.post("/criarBucket", FileController.criarBucket);
 router.delete("/delete", FileController.deleteFile);
 
+// CLOUDFARE R2
+router.post("/r2_upload", uploadFileMiddleware, uploadFileHandler);
+router.delete("/r2_delete", deleteFileHandler);
+
 // Conversão DOCX → PDF
 router.post("/convert-docx-to-pdf", upload.single("file"), DocxConverter.convertDocxToPdf);
 
-// Rota de scraping do Instagram
-router.get("/scrape/:username", async (req, res) => {
-  const { username } = req.params;
-  try {
-    const profileData = await scrapeInstagramProfile(username);
-    res.json(profileData);
-  } catch (err) {
-    console.error("Erro no scraping:", err);
-    res
-      .status(500)
-      .json({ error: "Falha ao raspar Instagram", details: err.message });
-  }
-});
+// PORTÃO ESP8266 RELE LAR
+router.post("/portao/abrir", PortaoController.abrir);   // body: { ms?: number }
+router.get("/portao/logs", PortaoController.logs);      // query: deviceId, limit
 
 module.exports = (app) => { app.use(router); };

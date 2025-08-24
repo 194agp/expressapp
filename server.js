@@ -26,6 +26,11 @@ async function bootstrap() {
   // 5) Rotas
   initRoutes(app);
 
+  // server.js (depois de initRoutes/app prontos)
+  if (process.env.ENABLE_PORTAO_MQTT === "true") {
+    require("./src/services/mqtt"); // registra subscribe em /stat e grava no Mongo
+  }
+
   // 6) Cron Jobs (se eles fizerem uso de app.locals.db, garanta que rodem depois do connect)
   try {
     cronJobs(app);
