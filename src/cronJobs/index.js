@@ -3,6 +3,9 @@ require('dotenv').config();
 const cron = require('node-cron');
 const { sendMessage, sendSurvey } = require('../api/Whatsapp.js');
 const { findElimAusenteService } = require('../services/ElimAusenteService.js');
+const { findSemEvolucao7dService } = require('../services/FindSemEvolucao7dService.js');
+const formatarData = require('../utils/funcoes/formatarData.js');
+const formatarNome = require('../utils/funcoes/formatarNome.js');
 
 /**
  * Inicializa todos os cron jobs, usando o `db` que foi
@@ -87,6 +90,51 @@ function initCronJobs(app) {
             }
         },
         { timezone: 'America/Sao_Paulo' }
+    );
+
+
+    /**
+     * Cron diário 09:00 BRT
+     * Requer:
+     * - process.env.WPP_GROUP_PROFISSOES (ou outro grupo)
+     * - função sendMessage(groupId, text)
+    */
+    cron.schedule(
+        '0 9 * * *',
+        async () => {
+            try {
+                const resultados = await findSemEvolucao7dService(db);
+                const wppGroupId = process.env.WPP_GROUP_MULTIDISCIPLINAR;
+
+                if (!resultados || resultados.length === 0) {
+                    console.log("🔍 Nenhuma área com residentes >7 dias sem evolução.");
+                    return;
+                }
+
+                const blocos = resultados.map(({ area, residentes }) => {
+                    const linhas = residentes.map(r =>
+                        `  • ${formatarNome(r.nome)} — últ.: ${formatarData(r.ultimaEvolucao)} (${r.daysSince}d)`
+                    ).join('\n');
+                    return `*${area}*\n${linhas}`;
+                }).join('\n\n');
+
+                const mensagem = [
+                    "🤖 *Alerta de Evolução*",
+                    "",
+                    "Idosos sem evolução há *mais de 7 dias* (por área):",
+                    "",
+                    blocos,
+                    "",
+                    "Por favor, realizar as evoluções pendentes. 👍"
+                ].join("\n");
+
+                await sendMessage(wppGroupId, mensagem);
+                console.log("✅ Alerta sem evolução enviado ao WhatsApp");
+            } catch (err) {
+                console.error("❌ Erro no cronjob de evolução (>7d):", err);
+            }
+        },
+        { timezone: "America/Sao_Paulo" }
     );
 }
 
