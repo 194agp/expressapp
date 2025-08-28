@@ -7,6 +7,9 @@ async function findSemEvolucao7dService(db) {
         // 1) Filtra apenas residentes ativos ("S" ou booleano true)
         { "$match": { "$or": [{ "is_ativo": "S" }, { "is_ativo": true }] } },
 
+        // 1) Filtra apenas residentes ativos ("S" ou booleano true)
+        { "$match": { "$or": [{ "tipo_contrato": "Residência Fixa" }, { "tipo_contrato": "Centro Dia" }] } },
+
         // 2) Converte o _id do residente (ObjectId) em string
         //    porque em "evolucao" o campo residente_id está salvo como string
         { "$addFields": { "ridStr": { "$toString": "$_id" } } },
@@ -100,6 +103,7 @@ async function findSemEvolucao7dService(db) {
                 "area": 1,
                 "id": "$ridStr",
                 "nome": "$nome",
+                "apelido": "$apelido",
                 "ultimaEvolucao": 1,
                 "ultimaEvolucao_fmt": 1,
                 "daysSince": 1,
@@ -118,6 +122,7 @@ async function findSemEvolucao7dService(db) {
                     "$push": {
                         "id": "$id",
                         "nome": "$nome",
+                        "apelido": "$apelido",
                         "ultimaEvolucao": "$ultimaEvolucao",
                         "ultimaEvolucao_fmt": "$ultimaEvolucao_fmt",
                         "daysSince": "$daysSince"
@@ -131,7 +136,7 @@ async function findSemEvolucao7dService(db) {
 
         // 13) Ordena a lista final das áreas alfabeticamente
         { "$sort": { "area": 1 } }
-    ]
+    ];
 
     return db.collection("residentes").aggregate(pipeline).toArray();
 }
