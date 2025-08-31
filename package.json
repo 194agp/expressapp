@@ -16,8 +16,9 @@
   "author": "bezkoder",
   "license": "ISC",
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.879.0",
+    "@aws-sdk/s3-request-presigner": "^3.879.0",
     "@google-cloud/storage": "^5.20.5",
-    "aws-sdk": "^2.1692.0",
     "cors": "^2.8.5",
     "date-fns-tz": "^3.2.0",
     "docx-pdf": "^0.0.1",
@@ -26,7 +27,6 @@
     "mongodb": "^6.17.0",
     "mqtt": "^5.14.0",
     "multer": "^1.4.4",
-    "multer-s3": "^3.0.1",
     "node-cron": "^3.0.3",
     "puppeteer": "^24.12.1"
   },
