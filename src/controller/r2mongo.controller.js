@@ -14,9 +14,9 @@ const uploadLimit = multer({
 });
 
 function toObjectId(id) {
-  if (id instanceof ObjectId) return id;
-  if (typeof id === "string" && ObjectId.isValid(id)) return new ObjectId(id);
-  return null;
+    if (id instanceof ObjectId) return id;
+    if (typeof id === "string" && ObjectId.isValid(id)) return new ObjectId(id);
+    return null;
 }
 
 
@@ -113,6 +113,10 @@ async function uploadHandler(req, res) {
         const db = getDb();
         const arquivosR2 = db.collection('arquivosr2');
 
+        const ownerId = req.body.ownerId
+            ? ObjectId.createFromHexString(req.body.ownerId)
+            : null;
+
         const doc = {
             bucket,
             key,
@@ -121,8 +125,9 @@ async function uploadHandler(req, res) {
             size: req.file.size,
             etag: put.ETag,
             isPublic,
+            dbName: req.body.dbName || null,
             ownerType: req.body.ownerType || null,
-            ownerId: req.body.ownerId || null,
+            ownerId: ownerId,
             createdBy: req.user?._id || null,
             tags: req.body.tags ? [].concat(req.body.tags) : [],
             createdAt: new Date(),
