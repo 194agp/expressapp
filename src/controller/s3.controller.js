@@ -1,76 +1,65 @@
-// // controllers/s3.controller.js
-// require('dotenv').config();
-// const multer   = require('multer');
-// const multerS3 = require('multer-s3');
-// const s3       = require('../config/s3');
+// src/controller/s3.controller.js
+require('dotenv').config();
+const multer = require('multer');
+const { s3 } = require('../config/s3');
+const { PutObjectCommand, DeleteObjectCommand } = require('@aws-sdk/client-s3');
 
-// const bucketName = process.env.BUCKET_NAME;
-// const MAX_SIZE = 5 * 1024 * 1024; // 5 MB em bytes
+const BUCKET = process.env.BUCKET_NAME;
+const ACCOUNT = process.env.CLDFR_ACCOUNT_ID || '';
+const PUBLIC_BASE = (BUCKET && ACCOUNT) ? `https://${BUCKET}.${ACCOUNT}.r2.dev` : '';
 
-// // --- Configuração do multer-s3 com limite de 5MB ---
-// const upload = multer({
-//   storage: multerS3({
-//     s3,
-//     bucket: bucketName,
-//     acl: 'public-read',
-//     contentType: multerS3.AUTO_CONTENT_TYPE,
-//     key: (req, file, cb) => {
-//       const userId    = req.user?.id ?? 'guest';
-//       const timestamp = Date.now();
-//       const safeName  = file.originalname.replace(/\s+/g, '_');
-//       cb(null, `user_${userId}/${timestamp}_${safeName}`);
-//     }
-//   }),
-//   limits: { fileSize: MAX_SIZE },           // aqui
-//   fileFilter: (req, file, cb) => {
-//     // aceitar qualquer tipo de arquivo
-//     cb(null, true);
-//   }
-// });
+if (!BUCKET) throw new Error('BUCKET_NAME não definido.');
 
-// const uploadFileMiddleware = upload.single('file');  // campo 'file'
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 } // 5MB
+});
 
-// /**
-//  * Handler de upload: retorna URL pública e 'key'
-//  */
-// function uploadFileHandler(req, res) {
-//   if (!req.file) {
-//     return res
-//       .status(400)
-//       .json({ error: 'Nenhum arquivo enviado no campo "file", ou excedeu 5 MB.' });
-//   }
-//   res.json({
-//     url: req.file.location,
-//     key: req.file.key
-//   });
-// }
+const uploadFileMiddleware = upload.single('file');
 
-// /**
-//  * Handler de deleção: apaga pelo 'key'
-//  */
-// async function deleteFileHandler(req, res) {
-//   const { key } = req.body;
-//   if (!key) {
-//     return res
-//       .status(400)
-//       .json({ error: 'Informe o "key" do objeto a ser deletado.' });
-//   }
+function buildKey(req, file) {
+  const userId = req.user?.id ?? 'guest';
+  const ts = Date.now();
+  const safe = (file.originalname || 'file').replace(/\s+/g, '_');
+  return `user_${userId}/${ts}_${safe}`;
+}
 
-//   try {
-//     await s3.deleteObject({
-//       Bucket: bucketName,
-//       Key: key
-//     }).promise();
+async function uploadFileHandler(req, res) {
+  try {
+    if (!req.file) return res.status(400).json({ error: 'Envie o arquivo no campo "file".' });
 
-//     res.json({ message: 'Arquivo deletado.', key });
-//   } catch (err) {
-//     console.error(err);
-//     res.status(500).json({ error: 'Erro ao deletar arquivo.', details: err.message });
-//   }
-// }
+    const key = buildKey(req, req.file);
 
-// module.exports = {
-//   uploadFileMiddleware,
-//   uploadFileHandler,
-//   deleteFileHandler
-// };
+    await s3.send(new PutObjectCommand({
+      Bucket: BUCKET,
+      Key: key,
+      Body: req.file.buffer,
+      ContentType: req.file.mimetype || 'application/octet-stream',
+    }));
+
+    const url = PUBLIC_BASE ? `${PUBLIC_BASE}/${key}` : `s3://${BUCKET}/${key}`;
+    return res.json({ url, key });
+  } catch (err) {
+    console.error('Upload error:', err);
+    return res.status(500).json({ error: 'Falha no upload', details: err.message });
+  }
+}
+
+async function deleteFileHandler(req, res) {
+  const { key } = req.body || {};
+  if (!key) return res.status(400).json({ error: 'Informe "key" para deletar.' });
+
+  try {
+    await s3.send(new DeleteObjectCommand({ Bucket: BUCKET, Key: key }));
+    return res.json({ message: 'Arquivo deletado.', key });
+  } catch (err) {
+    console.error('Delete error:', err);
+    return res.status(500).json({ error: 'Falha ao deletar', details: err.message });
+  }
+}
+
+module.exports = {
+  uploadFileMiddleware,
+  uploadFileHandler,
+  deleteFileHandler,
+};

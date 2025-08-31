@@ -14,8 +14,37 @@ async function bootstrap() {
   // 2) Sobe o Express
   const app = express();
 
+  // 👇 coloca aqui, antes do CORS
+  app.use((req, res, next) => {
+    console.log(`[CORS] ${req.method} ${req.path} | Origin: ${req.headers.origin}`);
+    next();
+  });
+
+  const WHITELIST = [
+    "https://www.larfelizidade.com.br",
+    "https://larfelizidade.com.br",
+    "http://localhost:3000",       // útil no dev
+  ];
+
+  const corsOptions = (req, cb) => {
+    const origin = req.header("Origin");
+    const isAllowed = origin && WHITELIST.includes(origin);
+    cb(null, {
+      origin: isAllowed ? origin : false,  // ecoa só se estiver na whitelist
+      credentials: true,                   // habilite se usar cookies
+      methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+      allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
+      exposedHeaders: ["Content-Length", "Content-Type"],
+    });
+  };
+
+
   // 3) Middlewares
-  app.use(cors({ origin: "*" }));
+  app.use((req, res, next) => { res.setHeader("Vary", "Origin"); next(); });
+  app.use(cors(corsOptions));
+  app.options("*", cors(corsOptions)); // responde preflight corretamente
+
+
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
 
