@@ -47,7 +47,7 @@ module.exports = {
       const bloqueado = isHorarioBloqueado(TZ, BLOQ_INICIO, BLOQ_FIM);
 
       let userName = String(userId);
-      try { userName = await getUserName(userId); } catch (_) {}
+      try { userName = await getUserName(userId); } catch (_) { }
 
       const requestedMs = Math.min(Math.max(Number(ms) || 300, 100), 5000);
       const now = new Date();
@@ -97,9 +97,7 @@ module.exports = {
 
       // 2) WhatsApp: etapa 1 (comando enviado, aguardando confirmação)
       try {
-        await sendMessage(
-          process.env.WPP_CELLAR,
-          `🔔 *${userName}* solicitou abertura.\n📤 Comando enviado ao portão (ms=${requestedMs}).\n⏳ Aguardando confirmação...`
+        await sendMessage(process.env.WPP_CELLAR, `🔔 *${userName}* solicitou abertura.\n📤 Comando enviado ao portão (ms=${requestedMs}).\n⏳ Aguardando confirmação...`
         );
       } catch (e) {
         console.error("[WPP] falha ao enviar aviso inicial:", e?.message);
@@ -112,17 +110,11 @@ module.exports = {
       const timeoutMs = Number(process.env.PORTAO_ACK_TIMEOUT_MS) || 5000;
 
       try {
-        const ackEvt = await waitForAck({
-          deviceId,
-          sinceDate: now,
-          timeoutMs,
-        });
+        const ackEvt = await waitForAck({ deviceId, sinceDate: now, timeoutMs, });
 
         // 5) WhatsApp: etapa 2 (confirmado)
         try {
-          await sendMessage(
-            process.env.WPP_CELLAR,
-            `✅ Portão confirmado pelo dispositivo.\n🕒 ${getLocalTimeStr(TZ)}\nℹ️ status: *${ackEvt.data?.status}*`
+          await sendMessage(process.env.WPP_CELLAR, `🔔 Portão aberto por *${userName}*.\n🕒 ${getLocalTimeStr(TZ)}`
           );
         } catch (e) {
           console.error("[WPP] falha ao enviar confirmação:", e?.message);
@@ -141,10 +133,7 @@ module.exports = {
       } catch (ackErr) {
         // 6) sem ACK dentro do timeout
         try {
-          await sendMessage(
-            process.env.WPP_CELLAR,
-            `❌ Sem confirmação do dispositivo em ${timeoutMs} ms.\n🔎 Verifique energia/Wi-Fi do ESP.`
-          );
+          await sendMessage(process.env.WPP_CELLAR, `❌ Sem confirmação do dispositivo em ${timeoutMs} ms.\n🔎 Verifique energia/Wi-Fi do ESP.`);
         } catch (e) {
           console.error("[WPP] falha ao enviar falha:", e?.message);
         }

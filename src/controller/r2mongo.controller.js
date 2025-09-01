@@ -93,6 +93,13 @@ async function uploadHandler(req, res) {
     try {
         if (!req.file) return res.status(400).json({ error: 'campo "file" obrigatório (multipart/form-data)' });
 
+        const requiredFields = ['createdBy', 'originalName', 'dbName', 'recurso', 'userId'];
+
+        const missingFields = requiredFields.filter(field => !req.body[field]);
+        if (missingFields.length > 0) {
+            return res.status(400).json({ ok: false, error: `campos obrigatórios faltando: ${missingFields.join(', ')}` });
+        }
+
         const env = process.env.NODE_ENV || 'dev';
         const app = 'larfelizidade';
         const recurso = req.body.recurso || 'anexos';
