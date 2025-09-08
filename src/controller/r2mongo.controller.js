@@ -178,6 +178,7 @@ async function listFotos(req, res) {
     const lim = Math.min(parseInt(limit, 10) || 10, 100);
     const docs = await col.find(q).sort({ createdAt: -1 }).limit(lim).toArray();
 
+    
     const fotos = await Promise.all(
       docs.map(async (d) => {
         let url = '';
