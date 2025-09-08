@@ -8,10 +8,7 @@ const { getDb } = require('../config/mongoDB');
 const { ObjectId } = require('mongodb');
 const { PutObjectCommand, DeleteObjectCommand } = require('@aws-sdk/client-s3');
 
-const uploadLimit = multer({
-    storage: multer.memoryStorage(),
-    limits: { fileSize: 5 * 1024 * 1024 } // 5MB
-});
+const uploadLimit = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 
 function toObjectId(id) {
     if (id instanceof ObjectId) return id;
@@ -19,19 +16,15 @@ function toObjectId(id) {
     return null;
 }
 
-
 function sanitizeName(name = 'file') {
     return String(name)
         .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
         .replace(/[^\w.\-]+/g, '_');
 }
 
-function buildKey({ env, app, recurso, ident, originalName }) {
-    const d = new Date();
-    const yyyy = d.getUTCFullYear();
-    const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
+function buildKey({ env, app, resource, folder, userId, originalName }) {
     const uuid = randomUUID();
-    return `${env}/${app}/${recurso}/${ident}/${yyyy}/${mm}/${uuid}_${sanitizeName(originalName)}`;
+    return `${env}/${app}/${resource}/${userId}/${folder}/${uuid}_${sanitizeName(originalName)}`;
 }
 
 /**
@@ -93,7 +86,7 @@ async function uploadHandler(req, res) {
     try {
         if (!req.file) return res.status(400).json({ error: 'campo "file" obrigatório (multipart/form-data)' });
 
-        const requiredFields = ['createdBy', 'originalName', 'dbName', 'recurso', 'userId'];
+        const requiredFields = ['createdBy', 'originalName', 'collection', 'userId', 'folder', 'resource'];
 
         const missingFields = requiredFields.filter(field => !req.body[field]);
         if (missingFields.length > 0) {
@@ -102,11 +95,12 @@ async function uploadHandler(req, res) {
 
         const env = process.env.NODE_ENV || 'dev';
         const app = 'larfelizidade';
-        const recurso = req.body.recurso || 'anexos';
-        const ident = req.body.ident || 'usuario_guest';
+        const resource = req.body.resource || 'attach';
+        const userId = req.body.userId || 'guest';
+        const folder = req.body.folder || 'misc';
         const isPublic = String(req.body.isPublic || '').toLowerCase() === 'true';
 
-        const key = buildKey({ env, app, recurso, ident, originalName: req.file.originalname });
+        const key = buildKey({ env, app, resource, folder, userId, originalName: req.file.originalname });
         const bucket = pickBucket(isPublic);
 
         const put = await s3.send(new PutObjectCommand({
@@ -132,10 +126,11 @@ async function uploadHandler(req, res) {
             size: req.file.size,
             etag: put.ETag,
             isPublic,
-            dbName: req.body.dbName || null,
-            ownerType: req.body.ownerType || null,
-            ownerId: ownerId,
-            createdBy: req.user?._id || null,
+            title: req.body.title || null,
+            collection: req.body.collection || null,
+            folder,
+            userId,
+            createdBy: req.body.createdBy || null,
             tags: req.body.tags ? [].concat(req.body.tags) : [],
             createdAt: new Date(),
         };

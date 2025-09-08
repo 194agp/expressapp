@@ -92,6 +92,19 @@ client.on("message", async (topic, buf) => {
   try {
     const data = JSON.parse(buf.toString("utf8"));
     const allowed = ["done", "ignored"];
+    console.log(topic);
+    console.log(data);
+
+    // 👉 monitora presença
+    // if (data?.online === false) {
+    //   console.warn("[MQTT] Portão OFFLINE");
+    //   await sendMessage(process.env.LAR_WPP_GRUPAO, "🔴 O portão ficou OFFLINE!\nQuando a energia voltar o portão irá abrir sozinho uma vez.");
+    // }
+    // if (data?.online === true) {
+    //   console.log("[MQTT] Portão ONLINE");
+    //   await sendMessage(process.env.LAR_WPP_GRUPAO, "🟢 O portão está ONLINE novamente.\nFavor verificar se o portão abriu sozinho.");
+    // }
+    // return;
 
     // >>> NOVO: emite evento para quem estiver aguardando ACK
     statBus.emit("stat", {
