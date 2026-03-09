@@ -2,11 +2,11 @@
   "name": "nodejs-upload-file-google-cloud-storage",
   "version": "1.0.0",
   "description": "Node.js Upload file to Google Cloud Storage example",
-  "main": "dist/server.js",
+  "main": "server.ts",
   "scripts": {
     "dev": "tsx watch server.ts",
     "build": "tsc",
-    "start": "node dist/server.js",
+    "start": "tsx server.ts",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [
@@ -31,7 +31,8 @@
     "mqtt": "^5.14.0",
     "multer": "^1.4.4",
     "node-cron": "^3.0.3",
-    "puppeteer": "^24.12.1"
+    "puppeteer": "^24.12.1",
+    "tsx": "^4.21.0"
   },
   "devDependencies": {
     "@types/cors": "^2.8.19",
@@ -40,7 +41,6 @@
     "@types/node": "^22.5.4",
     "@types/node-cron": "^3.0.11",
     "ts-node": "^10.9.2",
-    "tsx": "^4.21.0",
     "typescript": "^5.5.4"
   }
 }
