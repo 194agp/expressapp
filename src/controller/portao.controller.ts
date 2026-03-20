@@ -1,5 +1,15 @@
 import type { Request, Response } from 'express';
-import { abrirPortao, waitForAck } from '../services/mqtt';
+import {
+  abrirPortao,
+  waitForAck,
+  client,
+  TOPIC_CMD,
+  TOPIC_STAT,
+  getMqttDebugSnapshot,
+  getRecentMqttDebugEvents,
+  publishDebugMessage,
+  waitForNextMessage,
+} from '../services/mqtt';
 import { getDb } from '../config/mongoDB';
 import { sendMessage } from '../api/Whatsapp.js';
 import { getUserName } from './mongo.controller';
@@ -27,6 +37,48 @@ function getLocalTimeStr(tz: string): string {
     second: '2-digit',
     hour12: false,
   });
+}
+
+function parseBool(value: unknown, fallback = false): boolean {
+  if (typeof value === 'boolean') return value;
+  if (typeof value !== 'string') return fallback;
+
+  const normalized = value.trim().toLowerCase();
+  if (['1', 'true', 'yes', 'y', 'on'].includes(normalized)) return true;
+  if (['0', 'false', 'no', 'n', 'off'].includes(normalized)) return false;
+  return fallback;
+}
+
+function parseQos(value: unknown, fallback: 0 | 1 | 2 = 1): 0 | 1 | 2 {
+  const n = Number(value);
+  if (n === 0 || n === 1 || n === 2) return n;
+  return fallback;
+}
+
+const MQTT_REQUIRED_ENV = ['MQTT_HOST', 'MQTT_PORT', 'MQTT_USER', 'MQTT_PASS', 'MQTT_DEVICE_ID', 'MQTT_TOPIC_BASE'] as const;
+
+function getMqttHealthState() {
+  const enabled = process.env.ENABLE_PORTAO_MQTT === 'true';
+  const missingEnv = MQTT_REQUIRED_ENV.filter((name) => !process.env[name] || String(process.env[name]).trim() === '');
+  const debug = getMqttDebugSnapshot();
+  const ready = enabled && missingEnv.length === 0 && client.connected;
+
+  const reasons: string[] = [];
+  if (!enabled) reasons.push('mqtt_disabled');
+  if (missingEnv.length > 0) reasons.push('missing_env');
+  if (!client.connected) reasons.push('client_not_connected');
+
+  return {
+    enabled,
+    ready,
+    reasons,
+    missingEnv,
+    connected: client.connected,
+    disconnected: client.disconnected,
+    reconnecting: debug.reconnecting,
+    topics: { cmd: TOPIC_CMD, stat: TOPIC_STAT },
+    debug,
+  };
 }
 
 export async function abrir(req: Request, res: Response): Promise<void> {
@@ -140,5 +192,248 @@ export async function logs(req: Request, res: Response): Promise<void> {
     res.json(docs);
   } catch (e: any) {
     res.status(500).json({ ok: false, error: 'db_failed', detail: e?.message });
+  }
+}
+
+export function mqttHealthLiveness(_req: Request, res: Response): void {
+  try {
+    const health = getMqttHealthState();
+    res.json({
+      ok: true,
+      service: 'mqtt',
+      check: 'liveness',
+      at: new Date().toISOString(),
+      enabled: health.enabled,
+      connected: health.connected,
+      disconnected: health.disconnected,
+      reconnecting: health.reconnecting,
+      topics: health.topics,
+    });
+  } catch (e: any) {
+    res.status(500).json({ ok: false, error: 'mqtt_liveness_failed', detail: e?.message });
+  }
+}
+
+export function mqttHealthReadiness(_req: Request, res: Response): void {
+  try {
+    const health = getMqttHealthState();
+    const code = health.ready ? 200 : 503;
+
+    res.status(code).json({
+      ok: health.ready,
+      service: 'mqtt',
+      check: 'readiness',
+      at: new Date().toISOString(),
+      enabled: health.enabled,
+      connected: health.connected,
+      disconnected: health.disconnected,
+      reconnecting: health.reconnecting,
+      reasons: health.reasons,
+      config: {
+        missingEnv: health.missingEnv,
+      },
+      topics: health.topics,
+      debug: {
+        counters: health.debug.counters,
+        last: health.debug.last,
+      },
+    });
+  } catch (e: any) {
+    res.status(500).json({ ok: false, error: 'mqtt_readiness_failed', detail: e?.message });
+  }
+}
+
+export function mqttDebugStatus(_req: Request, res: Response): void {
+  try {
+    const health = getMqttHealthState();
+
+    res.json({
+      ok: true,
+      enabled: health.enabled,
+      connected: health.connected,
+      disconnected: health.disconnected,
+      reconnecting: health.reconnecting,
+      topics: health.topics,
+      config: {
+        hostSet: Boolean(process.env.MQTT_HOST),
+        portSet: Boolean(process.env.MQTT_PORT),
+        userSet: Boolean(process.env.MQTT_USER),
+        passSet: Boolean(process.env.MQTT_PASS),
+        deviceId: process.env.MQTT_DEVICE_ID || null,
+        topicBase: process.env.MQTT_TOPIC_BASE || null,
+        missingEnv: health.missingEnv,
+      },
+      health: {
+        ready: health.ready,
+        reasons: health.reasons,
+      },
+      debug: health.debug,
+    });
+  } catch (e: any) {
+    res.status(500).json({ ok: false, error: 'mqtt_debug_status_failed', detail: e?.message });
+  }
+}
+
+export function mqttDebugEvents(req: Request, res: Response): void {
+  try {
+    const qLimit = Number((req.query.limit as string) || 50);
+    const limit = Math.min(Math.max(Number.isFinite(qLimit) ? qLimit : 50, 1), 200);
+    res.json({
+      ok: true,
+      limit,
+      events: getRecentMqttDebugEvents(limit),
+    });
+  } catch (e: any) {
+    res.status(500).json({ ok: false, error: 'mqtt_debug_events_failed', detail: e?.message });
+  }
+}
+
+export async function mqttDebugPublish(req: Request, res: Response): Promise<void> {
+  try {
+    const body = (req.body || {}) as {
+      topic?: string;
+      payload?: unknown;
+      qos?: number;
+      retain?: boolean | string;
+    };
+
+    const topic = typeof body.topic === 'string' && body.topic.trim() ? body.topic.trim() : TOPIC_CMD;
+    const payload = body.payload ?? { action: 'press', ms: 300 };
+    const qos = parseQos(body.qos, 1);
+    const retain = parseBool(body.retain, false);
+
+    const result = await publishDebugMessage({ topic, payload, qos, retain });
+    res.json({ ok: true, ...result });
+  } catch (e: any) {
+    res.status(500).json({ ok: false, error: 'mqtt_publish_failed', detail: e?.message });
+  }
+}
+
+export async function mqttDebugWaitMessage(req: Request, res: Response): Promise<void> {
+  try {
+    const body = (req.body || {}) as {
+      topic?: string;
+      timeoutMs?: number;
+      qos?: number;
+    };
+
+    const topic = typeof body.topic === 'string' && body.topic.trim() ? body.topic.trim() : TOPIC_STAT;
+    const timeoutInput = Number(body.timeoutMs);
+    const timeoutMs = Math.min(Math.max(Number.isFinite(timeoutInput) ? timeoutInput : 15000, 100), 60000);
+    const qos = parseQos(body.qos, 1);
+
+    const message = await waitForNextMessage({ topic, timeoutMs, qos });
+    res.json({ ok: true, topic, timeoutMs, message });
+  } catch (e: any) {
+    if (e?.message === 'timeout_waiting_message') {
+      res.status(504).json({
+        ok: false,
+        error: 'timeout_waiting_message',
+        detail: 'Nenhuma mensagem recebida no topico dentro do timeout.',
+      });
+      return;
+    }
+
+    res.status(500).json({ ok: false, error: 'mqtt_wait_message_failed', detail: e?.message });
+  }
+}
+
+export async function mqttDebugWaitAck(req: Request, res: Response): Promise<void> {
+  try {
+    const body = (req.body || {}) as {
+      deviceId?: string;
+      timeoutMs?: number;
+    };
+
+    const deviceId =
+      typeof body.deviceId === 'string' && body.deviceId.trim()
+        ? body.deviceId.trim()
+        : process.env.MQTT_DEVICE_ID || 'portao01';
+
+    const timeoutInput = Number(body.timeoutMs);
+    const timeoutMs = Math.min(Math.max(Number.isFinite(timeoutInput) ? timeoutInput : 10000, 100), 60000);
+    const sinceDate = new Date();
+
+    const ackEvt = await waitForAck({ deviceId, sinceDate, timeoutMs });
+    res.json({
+      ok: true,
+      ack: {
+        status: ackEvt.data?.status,
+        ts: ackEvt.data?.ts || null,
+        info: ackEvt.data?.info || null,
+      },
+      event: {
+        topic: ackEvt.topic,
+        deviceId: ackEvt.deviceId,
+        receivedAt: ackEvt.receivedAt,
+      },
+    });
+  } catch (e: any) {
+    if (e?.message === 'no_ack') {
+      res.status(504).json({ ok: false, error: 'no_ack', detail: 'Nenhum ack recebido dentro do timeout.' });
+      return;
+    }
+
+    res.status(500).json({ ok: false, error: 'mqtt_wait_ack_failed', detail: e?.message });
+  }
+}
+
+export async function mqttDebugPress(req: Request, res: Response): Promise<void> {
+  try {
+    const body = (req.body || {}) as {
+      ms?: number;
+      waitAck?: boolean | string;
+      timeoutMs?: number;
+      deviceId?: string;
+    };
+
+    const msInput = Number(body.ms);
+    const ms = Math.min(Math.max(Number.isFinite(msInput) ? msInput : 300, 100), 5000);
+    const waitAck = parseBool(body.waitAck, true);
+
+    const startedAt = new Date();
+    const sent = await abrirPortao(ms);
+
+    if (!waitAck) {
+      res.json({ ok: true, sent, ack: null });
+      return;
+    }
+
+    const deviceId =
+      typeof body.deviceId === 'string' && body.deviceId.trim()
+        ? body.deviceId.trim()
+        : process.env.MQTT_DEVICE_ID || 'portao01';
+
+    const timeoutInput = Number(body.timeoutMs);
+    const timeoutMs = Math.min(Math.max(Number.isFinite(timeoutInput) ? timeoutInput : 10000, 100), 60000);
+
+    try {
+      const ackEvt = await waitForAck({ deviceId, sinceDate: startedAt, timeoutMs });
+      res.json({
+        ok: true,
+        sent,
+        ack: {
+          status: ackEvt.data?.status,
+          ts: ackEvt.data?.ts || null,
+          info: ackEvt.data?.info || null,
+          topic: ackEvt.topic,
+          receivedAt: ackEvt.receivedAt,
+        },
+      });
+    } catch (ackErr: any) {
+      if (ackErr?.message === 'no_ack') {
+        res.status(504).json({
+          ok: false,
+          error: 'no_ack',
+          detail: 'Comando publicado, mas sem confirmacao dentro do timeout.',
+          sent,
+        });
+        return;
+      }
+
+      throw ackErr;
+    }
+  } catch (e: any) {
+    res.status(500).json({ ok: false, error: 'mqtt_debug_press_failed', detail: e?.message });
   }
 }
