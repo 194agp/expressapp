@@ -6,6 +6,18 @@ import { findSemEvolucao7dService } from '../services/FindSemEvolucao7dService';
 import formatarData from '../utils/funcoes/formatarData';
 import formatarNome from '../utils/funcoes/formatarNome';
 
+function fmtDate(d: Date | string): string {
+  const dt = new Date(d);
+  const parts = new Intl.DateTimeFormat('pt-BR', {
+    timeZone: 'America/Sao_Paulo',
+    day: '2-digit', month: '2-digit', year: '2-digit',
+    hour: '2-digit', minute: '2-digit',
+    hour12: false,
+  }).formatToParts(dt);
+  const get = (type: string) => parts.find(p => p.type === type)?.value ?? '00';
+  return `${get('day')}/${get('month')}/${get('year')} - ${get('hour')}:${get('minute')}`;
+}
+
 /**
  * Inicializa todos os cron jobs.
  * Requer que app.locals.db esteja definido antes de chamar.
@@ -53,16 +65,19 @@ export default function initCronJobs(app: Application): void {
         if (resultados.length > 0) {
           const linha = resultados.map(resultado => {
             const datas = resultado.ultimasAnotacoes
-              .map(data => `  • ${data}`)
+              .map(data => `  • ${fmtDate(data)}`)
               .join('\n');
-            return `👴👵 ${resultado.nome}:\n${datas}`;
+            const aviso = resultado.consecutiveCount > 4
+              ? ` *(${resultado.consecutiveCount} registros consecutivos)*`
+              : '';
+            return `👴👵 ${resultado.nome}${aviso}:\n${datas}`;
           }).join('\n\n');
 
           const mensagem = [
             '🤖 *Alerta de Saúde*',
             '',
-            'O robô identificou que estes idosos têm 4 registros seguidos',
-            'com *eliminação intestinal ausente*:',
+            'O robô identificou idosos com *eliminação intestinal ausente*',
+            'nos últimos registros consecutivos:',
             '',
             linha,
             '',
@@ -73,7 +88,7 @@ export default function initCronJobs(app: Application): void {
           await sendMessage(wppGroupId, mensagem);
           console.log('✅ Alerta enviado ao WhatsApp');
         } else {
-          console.log('🔍 Nenhum residente com 4 registros ausentes hoje.');
+          console.log('🔍 Nenhum residente com registros ausentes hoje.');
         }
       } catch (err) {
         console.error('❌ Erro no cronjob residentes (08:35):', err);
