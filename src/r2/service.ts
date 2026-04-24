@@ -63,6 +63,7 @@ export async function uploadFile({ fileBuffer, mimetype, originalName, body }: U
     collection = null,
     createdBy = null,
     title = null,
+    descricao = null,
     tags,
     ownerId,
   } = body as any;
@@ -88,6 +89,7 @@ export async function uploadFile({ fileBuffer, mimetype, originalName, body }: U
     etag: putResult.ETag,
     isPublic,
     title,
+    descricao,
     collection,
     folder: owner.type === 'usuario' ? owner.userId : 'empresa',
     userId: owner.type === 'usuario' ? owner.userId : 'empresa',
