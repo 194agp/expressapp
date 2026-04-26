@@ -3,6 +3,7 @@ import type { Application } from 'express';
 import { sendMessage, sendSurvey } from '../api/Whatsapp.js';
 import { findElimAusenteService } from '../services/ElimAusenteService';
 import { findSemEvolucao7dService } from '../services/FindSemEvolucao7dService';
+import { buildSegundaFeiraMensagem } from '../services/SegundaFeiraBomDiaService';
 import formatarData from '../utils/funcoes/formatarData';
 import formatarNome from '../utils/funcoes/formatarNome';
 
@@ -26,7 +27,22 @@ export default function initCronJobs(app: Application): void {
   const db = app.locals['db'];
   if (!db) throw new Error('Você precisa chamar connect() e atribuir app.locals.db antes de initCronJobs');
 
-  // 1) Survey de poker toda quinta-feira às 10h (horário de SP)
+  // 1) Bom dia de segunda-feira às 08:00 para o Grupão
+  cron.schedule(
+    '0 8 * * 1',
+    async () => {
+      try {
+        const msg = await buildSegundaFeiraMensagem(db);
+        await sendMessage(process.env.WPP_GROUP_GRUPAO!, msg);
+        console.log('✅ [Segunda] Bom dia enviado ao Grupão');
+      } catch (err) {
+        console.error('❌ Erro no cron bom dia segunda:', err);
+      }
+    },
+    { timezone: 'America/Sao_Paulo' }
+  );
+
+  // 2) Survey de poker toda quinta-feira às 10h (horário de SP)
   cron.schedule(
     '0 10 * * 4',
     async () => {

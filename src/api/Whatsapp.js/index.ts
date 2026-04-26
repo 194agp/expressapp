@@ -86,6 +86,26 @@ export async function sendImage(to: string, text: string, caption: string): Prom
   }
 }
 
+export async function getGroups(): Promise<unknown> {
+  const url = `${server}/${key}/groups`;
+  try {
+    const res = await fetch(url, { method: 'GET' });
+    const raw = await res.text();
+    const ct = res.headers.get('content-type') || '';
+    let data: unknown;
+    if (ct.includes('application/json')) {
+      try { data = JSON.parse(raw); } catch { data = { _raw: raw }; }
+    } else {
+      data = raw;
+    }
+    if (!res.ok) throw new Error(`getGroups falhou (${res.status}): ${JSON.stringify(data)}`);
+    return data;
+  } catch (err) {
+    console.error('💥 Erro na função getGroups:', err);
+    throw err;
+  }
+}
+
 export async function sendSurvey(to: string, name: string, opts: string[]): Promise<unknown> {
   const url = `${server}/${key}/message/survey`;
   const options: RequestInit = {

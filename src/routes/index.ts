@@ -5,6 +5,8 @@ import type { Application } from 'express';
 import * as FileController from '../controller/file.controller';
 import { convertDocxToPdf } from '../controller/docxToPDF.controller';
 import * as PortaoController from '../controller/portao.controller';
+import { getGroups } from '../api/Whatsapp.js/index';
+import { buildSegundaFeiraMensagem } from '../services/SegundaFeiraBomDiaService';
 import * as AiController from '../controller/ai.controller';
 import r2Routes from '../r2/routes';
 
@@ -28,6 +30,28 @@ router.post('/ai/complete', express.json({ limit: '10mb' }), AiController.comple
 
 // ------------------- Conversão DOCX → PDF -------------------
 router.post('/convert-docx-to-pdf', upload.single('file'), convertDocxToPdf);
+
+// ------------------- WHATSAPP DEBUG -------------------
+router.get('/whatsapp/groups', async (_req, res) => {
+  try {
+    const data = await getGroups();
+    res.json(data);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/whatsapp/segunda-feira/teste', express.json(), async (req, res) => {
+  try {
+    const db = req.app.locals['db'];
+    const msg = await buildSegundaFeiraMensagem(db);
+    const destino = process.env.WPP_GROUP_GRUPAO!;
+    await (await import('../api/Whatsapp.js/index')).sendMessage(destino, msg);
+    res.json({ ok: true, destino, preview: msg });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
 // ------------------- PORTÃO ESP8266 -------------------
 router.post('/portao/abrir', PortaoController.abrir);   // body: { userId, ms? }
