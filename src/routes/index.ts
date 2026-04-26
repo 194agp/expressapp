@@ -1,9 +1,11 @@
 import { Router } from 'express';
 import multer from 'multer';
+import express from 'express';
 import type { Application } from 'express';
 import * as FileController from '../controller/file.controller';
 import { convertDocxToPdf } from '../controller/docxToPDF.controller';
 import * as PortaoController from '../controller/portao.controller';
+import * as AiController from '../controller/ai.controller';
 import r2Routes from '../r2/routes';
 
 const router = Router();
@@ -20,6 +22,9 @@ router.delete('/delete', FileController.deleteFile);
 // ------------------- CLOUDFLARE R2 + MONGODB -------------------
 // Rotas definidas em src/r2/routes.ts
 router.use(r2Routes);
+
+// ------------------- IA -------------------
+router.post('/ai/complete', express.json({ limit: '10mb' }), AiController.complete);
 
 // ------------------- Conversão DOCX → PDF -------------------
 router.post('/convert-docx-to-pdf', upload.single('file'), convertDocxToPdf);
