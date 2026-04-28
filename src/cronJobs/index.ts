@@ -4,6 +4,7 @@ import { sendMessage, sendSurvey } from '../api/Whatsapp.js';
 import { findElimAusenteService } from '../services/ElimAusenteService';
 import { findSemEvolucao7dService } from '../services/FindSemEvolucao7dService';
 import { buildSegundaFeiraMensagem } from '../services/SegundaFeiraBomDiaService';
+import { buildPendenciasAdmMensagem } from '../services/PendenciasAdmService';
 import formatarData from '../utils/funcoes/formatarData';
 import formatarNome from '../utils/funcoes/formatarNome';
 
@@ -42,7 +43,22 @@ export default function initCronJobs(app: Application): void {
     { timezone: 'America/Sao_Paulo' }
   );
 
-  // 2) Survey de poker toda quinta-feira às 10h (horário de SP)
+  // 2) Pendências ADM seg-sex às 10h
+  cron.schedule(
+    '0 10 * * 1-5',
+    async () => {
+      try {
+        const msg = await buildPendenciasAdmMensagem(db);
+        await sendMessage(process.env.WPP_GROUP_ADM!, msg);
+        console.log('✅ [Pendências ADM] Enviado');
+      } catch (err) {
+        console.error('❌ Erro no cron pendências ADM:', err);
+      }
+    },
+    { timezone: 'America/Sao_Paulo' }
+  );
+
+  // 3) Survey de poker toda quinta-feira às 10h (horário de SP)
   cron.schedule(
     '0 10 * * 4',
     async () => {

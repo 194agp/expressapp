@@ -17,6 +17,16 @@ interface Aniversariante {
 }
 
 function parseDDMMYYYY(s: string): { dia: number; mes: number } | null {
+  if (!s) return null;
+  // YYYY-MM-DD
+  if (s.includes('-')) {
+    const parts = s.split('-');
+    const mes = parseInt(parts[1], 10);
+    const dia = parseInt(parts[2], 10);
+    if (isNaN(dia) || isNaN(mes)) return null;
+    return { dia, mes };
+  }
+  // DD/MM/YYYY
   const [d, m] = s.split('/');
   const dia = parseInt(d, 10);
   const mes = parseInt(m, 10);
@@ -34,12 +44,12 @@ function parseYYYYMMDD(s: string): { dia: number; mes: number } | null {
 }
 
 function dentroProximos15Dias(dia: number, mes: number, hoje: Date): boolean {
-  const ano = hoje.getFullYear();
-  let alvo = new Date(ano, mes - 1, dia);
-  if (alvo < hoje) alvo = new Date(ano + 1, mes - 1, dia);
-  const limite = new Date(hoje);
-  limite.setDate(hoje.getDate() + 15);
-  return alvo >= hoje && alvo <= limite;
+  const hojeZerado = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate());
+  let alvo = new Date(hojeZerado.getFullYear(), mes - 1, dia);
+  if (alvo < hojeZerado) alvo = new Date(hojeZerado.getFullYear() + 1, mes - 1, dia);
+  const limite = new Date(hojeZerado);
+  limite.setDate(hojeZerado.getDate() + 15);
+  return alvo >= hojeZerado && alvo <= limite;
 }
 
 function formatDiaMes(dia: number, mes: number): string {
@@ -122,7 +132,8 @@ export async function buildSegundaFeiraMensagem(db: Db): Promise<string> {
     linhas.push('', '━━━━━━━━━━━━━━', '📅 *Datas Importantes — próximos 15 dias:*', '');
     for (const d of datasProximas) {
       const horario = d.horario ? ` às ${d.horario}` : '';
-      linhas.push(`• ${formatDiaMes(d.dia, d.mes)} — ${d.titulo} _(${d.tipo})_${horario}`);
+      const tipo = d.tipo ? ` _(${d.tipo})_` : '';
+      linhas.push(`• ${formatDiaMes(d.dia, d.mes)} — ${d.titulo}${tipo}${horario}`);
     }
   }
 
