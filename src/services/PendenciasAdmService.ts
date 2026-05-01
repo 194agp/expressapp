@@ -1,4 +1,5 @@
 import type { Db } from 'mongodb';
+import { ObjectId } from 'mongodb';
 
 function isEmpty(v: unknown): boolean {
   if (v === null || v === undefined || v === '') return true;
@@ -14,19 +15,24 @@ export async function buildPendenciasAdmMensagem(db: Db): Promise<string> {
   const linhas: string[] = ['📋 *Pendências Administrativas*', ''];
 
   // --- Residentes sem foto ---
-  const resSemFoto = await db
+  const todosResidentes = await db
     .collection('residentes')
-    .find({
-      is_ativo: 'S',
-      $or: [
-        { foto_base64: { $exists: false } },
-        { foto_base64: null },
-        { foto_base64: '' },
-      ],
-    })
-    .project({ nome: 1 })
+    .find({ is_ativo: 'S' })
+    .project({ _id: 1, nome: 1, foto_base64: 1 })
     .sort({ nome: 1 })
     .toArray();
+
+  const resIds = todosResidentes.map(r => r._id.toString());
+  const fotosResR2 = await db
+    .collection('arquivosr2')
+    .find({ collection: 'foto_perfil', folder: { $in: resIds } })
+    .project({ folder: 1 })
+    .toArray();
+  const resComFotoR2 = new Set(fotosResR2.map(f => f.folder));
+
+  const resSemFoto = todosResidentes.filter(
+    r => isEmpty(r.foto_base64) && !resComFotoR2.has(r._id.toString())
+  );
 
   if (resSemFoto.length > 0) {
     linhas.push(`*Residentes sem foto* (${resSemFoto.length}):`);
@@ -48,19 +54,33 @@ export async function buildPendenciasAdmMensagem(db: Db): Promise<string> {
 
   // Buscar usuarios para nome + foto
   const userIds = clts.map(c => c.usuarioId?.toString()).filter(Boolean);
+  const objIds = userIds.map(id => { try { return new ObjectId(id); } catch { return null; } }).filter(Boolean);
+
   const usuarios = await db
     .collection('usuario')
-    .find({ _id: { $in: userIds.map(id => { try { const { ObjectId } = require('mongodb'); return new ObjectId(id); } catch { return id; } }) } })
+    .find({ _id: { $in: objIds } })
     .project({ _id: 1, nome: 1, sobrenome: 1, foto_base64: 1 })
     .toArray();
 
   const usuarioMap = new Map(usuarios.map(u => [u._id.toString(), u]));
 
+  // Ids com foto no R2 (collection: foto_perfil, folder = usuarioId)
+  const fotosR2 = await db
+    .collection('arquivosr2')
+    .find({ collection: 'foto_perfil', folder: { $in: userIds } })
+    .project({ folder: 1 })
+    .toArray();
+
+  const comFotoR2 = new Set(fotosR2.map(f => f.folder));
+
   const pendentes: string[] = [];
 
   for (const c of clts) {
-    const usr = usuarioMap.get(c.usuarioId?.toString());
+    const uid = c.usuarioId?.toString();
+    const usr = usuarioMap.get(uid);
     const nomeCompleto = usr ? [usr.nome, usr.sobrenome].filter(Boolean).join(' ') : `(id: ${c.usuarioId})`;
+
+    const temFoto = (!isEmpty(usr?.foto_base64)) || comFotoR2.has(uid);
 
     const faltando: string[] = [];
 
@@ -72,7 +92,7 @@ export async function buildPendenciasAdmMensagem(db: Db): Promise<string> {
     if (isEmpty(c.dadosBancarios))          faltando.push('Dados bancários');
     if (isEmpty(c.endereco))                faltando.push('Endereço');
     if (isEmpty(c.contatoEmergencia))       faltando.push('Contato emergência');
-    if (!usr || isEmpty(usr.foto_base64))   faltando.push('Foto');
+    if (!temFoto)                           faltando.push('Foto');
 
     if (faltando.length > 0) {
       pendentes.push(`  • ${nomeCompleto}\n    ↳ ${faltando.join(', ')}`);
